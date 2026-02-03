@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-
+// view == component
 //ContentView -> screen component
 //extends View rules
 struct ContentView: View {
@@ -21,7 +21,7 @@ struct ContentView: View {
     //private -> only accessible in content view struct
     @State private var showBranch = false
 
-    //Tracks the type of branch the user chooses
+    //Tracks the type of branch the user chooses, determine UI behavior
     @State private var selectedBranchType: String = "Temporary"
 
     //variable name : return type is of some kind of display
@@ -67,21 +67,61 @@ struct ContentView: View {
             if showBranch {
                 //renders a VStack in the BIG HStack
                 VStack {
-                    Text("Side Exploration")
+                    HStack {
+                        Text("Side Exploration")
+                            //sets the color of the component
+                            .foregroundColor(.black)
 
-                    Button("Close") {
-                        withAnimation {
-                            showBranch = false
+                        Spacer()
+
+                        Button(action: {
+                            withAnimation{
+                                showBranch = false
+                            }
+                        }) {
+                            Image(systemName: "xmark")
+                                .foregroundColor(.black)
                         }
                     }
-                    .buttonStyle
+
+                    //choosing between temp or independent
+                    HStack(spacing: 12) {
+                        Button(action: {selectedBranchType = "Temporary"}) {
+                            HStack {
+                                Image(systemName: "clock")
+                                Text("Temporary")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(10)
+                            .background(selectedBranchType == "Temporary" ? Color.blue : Color.gray.opacity(0.1))
+                            .foregroundColor(selectedBranchType == "Temporary" ? .white : .black)
+                            .cornerRadius(8)
+                        }
+
+                        Button(action: { selectedBranchType = "Permanent" }) {
+                            HStack {
+                                Image(systemName: "sparkles")
+                                Text("Permanent")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(10)
+                            .background(selectedBranchType == "Permanent" ? Color.purple : Color.gray.opacity(0.1))
+                            .foregroundColor(selectedBranchType == "Permanent" ? .white : .black)
+                            .cornerRadius(8)
+                        }
+                    }
+                    //hint text for tips
+                    Text(selectedBranchType == "Temporary" ? "Deleted when closed" : "Saved and can be reopened")
+                        .font(.caption)
+                        .foregroundColor(.gray)
                 }
+                .padding()
+                //space around a view
                 .frame(width: 300)
                 .padding()
+                .background(Color.white)
                 .transition(.move(edge: .trailing))
                 //animation when rendering this componenet relates withAnimation
-
-
             }
         }
     }
