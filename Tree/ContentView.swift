@@ -39,122 +39,156 @@ struct ContentView: View {
     }
 }
 
-//Subviews
+//Subviews that ContentView can render
 private extension ContentView {
     var mainChatColumn : some View{
         VStack(alignment: .leading, spacing: 16) {
+            mainHeader
+
             //loop through each message in the array
             //id tells what we are iterating over
             //the item being looped is named as message
             ForEach(messages, id: \.self) { message in
-                //each message has a horizontal stack
-                HStack{
-                    //components in the stack (left to right ordered)
-                    //user messages
-                    Text(message)
-                        .padding(12)
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(8)
-
-                    Spacer()
-
-                    //the branching
-                    Button("Branch"){
-                        showBranch = true
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
+                messageRow(message)
             }
             Spacer()
         }
         .padding()
         .frame(maxWidth: .infinity)
     }
+    
+    var mainHeader: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "sparkles")
+                .font(.title3)
+            Text("Learning")
+                .font(.headline)
+        }
+        .padding(.bottom, 8)
+    }
+
+    func messageRow(_ message: String) -> some View {
+        HStack{
+            //components in the stack (left to right ordered)
+            //user messages
+            Text(message)
+                .padding(12)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(8)
+
+            Spacer()
+
+            //the branching
+            Button("Branch"){
+                showBranch = true
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
 
     var branchPanel : some View {
         VStack(spacing: 0){
             //renders a VStack in the BIG HStack
-            VStack {
-                HStack {
-                    Text("Side Exploration")
-                        //sets the color of the component
-                        .foregroundColor(.black)
-
-                    Spacer()
-
-                    Button(action: {
-                        withAnimation{
-                            showBranch = false
-                        }
-                    }) {
-                        Image(systemName: "xmark")
-                            .foregroundColor(.black)
-                    }
-                }
-
-                //choosing between temp or independent
-                HStack(spacing: 12) {
-                    Button(action: {selectedBranchType = "Temporary"}) {
-                        HStack {
-                            Image(systemName: "clock")
-                            Text("Temporary")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(10)
-                        .background(selectedBranchType == "Temporary" ? Color.blue : Color.gray.opacity(0.1))
-                        .foregroundColor(selectedBranchType == "Temporary" ? .white : .black)
-                        .cornerRadius(8)
-                    }
-
-                    Button(action: { selectedBranchType = "Permanent" }) {
-                        HStack {
-                            Image(systemName: "sparkles")
-                            Text("Permanent")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(10)
-                        .background(selectedBranchType == "Permanent" ? Color.purple : Color.gray.opacity(0.1))
-                        .foregroundColor(selectedBranchType == "Permanent" ? .white : .black)
-                        .cornerRadius(8)
-                    }
-                }
-                //hint text for tips
-                Text(selectedBranchType == "Temporary" ? "Deleted when closed" : "Saved and can be reopened")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
-            .padding()
+            branchHeader
             //space around a view
 
             Spacer()
 
             // Message input at bottom
-            HStack {
-                TextField("Message", text: $branchMessage)
-                    .textFieldStyle(.plain)
-                    .padding(10)
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
-                    .foregroundColor(.black)
-                
-                Button(action: {
-                    // Send message action (implement later)
-                    print("Send: \(branchMessage)")
-                    branchMessage = ""
-                }) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.blue)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding()
+            branchInputBar
         }
         .frame(width: 300)
         .padding()
         .background(Color.white)
-        .transition(.move(edge: .trailing))
         //animation when rendering this componenet relates withAnimation
+    }
+
+    var branchHeader: some View {
+        VStack(spacing: 12){
+            HStack {
+                Text("Side Exploration")
+                    //sets the color of the component
+                    .foregroundColor(.black)
+
+                Spacer()
+
+                Button(action: {
+                    withAnimation{
+                        showBranch = false
+                    }
+                }) {
+                    Image(systemName: "xmark")
+                        .foregroundColor(.black)
+                }
+            }
+
+            //choosing between temp or independent
+            HStack(spacing: 12) {
+                branchTypeButton(
+                    title: "Temporary",
+                    icon: "clock",
+                    color: .blue,
+                    isSelected: selectedBranchType == "Temporary"
+                ) {
+                    selectedBranchType = "Temporary"
+                }
+                
+
+                branchTypeButton(
+                    title: "Permanent",
+                    icon: "sparkles",
+                    color: .purple,
+                    isSelected: selectedBranchType == "Permanent"
+                ) {
+                    selectedBranchType = "Permanent"
+                }
+            }
+            //hint text for tips
+            Text(selectedBranchType == "Temporary" ? "Deleted when closed" : "Saved and can be reopened")
+                .font(.caption)
+                .foregroundColor(.gray)
+        }
+    }
+
+    func branchTypeButton(
+        title: String,
+        icon: String,
+        color: Color,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: icon)
+                Text(title)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(10)
+            .background(isSelected ? color : Color.gray.opacity(0.1))
+            .foregroundColor(isSelected ? .white : .black)
+            .cornerRadius(8)
+        }
+    }
+    var branchInputBar: some View {
+        HStack {
+            TextField("Message", text: $branchMessage)
+                .textFieldStyle(.plain)
+                .padding(10)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(8)
+                .foregroundColor(.black)
+
+            Button(action: {
+                print("Send: \(branchMessage)")
+                branchMessage = ""
+            }) {
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.system(size: 24))
+                    .foregroundColor(.blue)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding()
     }
 }
 
