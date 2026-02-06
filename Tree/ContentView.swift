@@ -73,7 +73,7 @@ struct ContentView: View {
         "test"
     ]
 
-    let chats = [
+    @State private var chats = [
         "Chat 1",
         "Chat 2",
         "Chat 3",
@@ -108,7 +108,7 @@ struct ContentView: View {
     //show the chats log
     @State private var showChats = true
 
-    //which chat to rename
+    //user can pick which chat to rename
     @State private var renameChatIndex: Int = -1
 
     //new chat's name after renaming
@@ -119,10 +119,12 @@ struct ContentView: View {
         HStack(spacing: 0) {
             if showChats {
                 chatSidebar
+                .transition(.move(edge: .leading)) //View property
             }
             mainChatColumn
             if showBranch {
                 branchPanel
+                .transition(.move(edge: .trailing))
             }
         }
     }
@@ -136,18 +138,36 @@ private extension ContentView {
             chatHeader
             ScrollView {
                 VStack(alignment: .leading) {
-                    ForEach(chats, id: \.self) {
-                        chat in Text(chat)
-                            .foregroundColor(.black)
-                            .padding(12)
+                    //looping through indices in arr
+                    ForEach(chats.indices, id: \.self) { index in
+                        if renameChatIndex == index {
+                            // on commit entails what happens when we click enter
+                            TextField("Chat name", text: $newName, onCommit: {
+                                //if no new text just revert bnack to original name
+                                chats[index] = newName.isEmpty ? chats[index] : newName
+                                renameChatIndex = -1
+                            })
+                            .textFieldStyle(.plain)
+                            .padding(.vertical, 8)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                    } 
+                            .foregroundColor(.white)
+                        } else {
+                            Text(chats[index])
+                                .foregroundColor(.white)
+                                .padding(.vertical, 8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .onTapGesture { //when clicked the text we change the renameChatIndex to that index
+                                    renameChatIndex = index
+                                    newName = chats[index] //and we also initialize newName as the current text
+                                }
+                        }
+                    }
                 }
             }
         }
         .padding() //padding around VStack
         .frame(width: 220) //width of vstack
-        .background(Color.white)
+        .background(Color.gray.opacity(0.1))
     }
 
     var chatHeader : some View {
@@ -160,13 +180,14 @@ private extension ContentView {
                 print("New Chat")
             }){
                 Image(systemName: "plus")
-                    .foregroundColor(.black)
+                    .foregroundColor(.white)
                 Text("New Chat")
-                    .foregroundColor(.black)
-                    .padding()
+                    .foregroundColor(.white)
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 8)
             }
             .buttonStyle(.bordered)
-            .tint(.black)
+            .tint(.white)
         }
     }
 
@@ -216,8 +237,6 @@ private extension ContentView {
             Image(systemName: "line.3.horizontal")
                 .foregroundColor(.black)
         }
-        .transition(.move(edge: .trailing))
-        //only defines a component's animation
         .buttonStyle(.bordered)
         .tint(.black)
     }
@@ -241,7 +260,6 @@ private extension ContentView {
                 }
             }
             .buttonStyle(.borderedProminent)
-            .transition(.move(edge: .trailing))
         }
     }
     
@@ -318,7 +336,6 @@ private extension ContentView {
                     Image(systemName: "xmark")
                         .foregroundColor(.black)
                 }
-                .transition(.move(edge: .trailing))
             }
 
             //choosing between temp or independent
