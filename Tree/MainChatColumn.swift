@@ -16,10 +16,8 @@ extension ContentView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     //loop through each message in the array
-                    //id tells what we are iterating over
-                    //the item being looped is named as message
-                    ForEach(messages, id: \.self) { 
-                        message in messageRow(msg: message)
+                    ForEach(messages, id: \.text) { message in
+                        messageRow(msg: message)
                     }
                 }
                 .padding()
@@ -32,7 +30,8 @@ extension ContentView {
                 text: $mainMessage,
                 onSend: {
                     if !mainMessage.isEmpty {
-                        messages.append(mainMessage)
+                        //user message is always isUser: true
+                        messages.append(ChatMessage(text: mainMessage, isUser: true))
                         DispatchQueue.main.async {
                             mainMessage = ""
                         }
@@ -78,21 +77,31 @@ extension ContentView {
         .tint(.black)
     }
 
-    func messageRow(msg: String) -> some View {
-        HStack{
-            //components in the stack (left to right ordered)
-            //user messages
-            Text(msg)
-                .padding(12)
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(8)
+    func messageRow(msg: ChatMessage) -> some View {
+        VStack(alignment: msg.isUser ? .trailing : .leading, spacing: 6) {//tells the alignment of all componetns inside
+            HStack {
+                //user message: push to the right
+                if msg.isUser {
+                    Spacer()
+                }
 
-            Spacer()
+                Text(msg.text)
+                    .padding(12)
+                    .background(msg.isUser ? Color.blue : Color.gray.opacity(0.1))
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    //these are called view modifiers
 
-            //the branching
-            if !showBranch {
-                Button{
-                    withAnimation{
+                //AI message: push to the left
+                if !msg.isUser {
+                    Spacer()
+                }
+            }
+
+            //branch button underneath AI messages only
+            if !msg.isUser {
+                Button {
+                    withAnimation {
                         showBranch = true
                     }
                 } label : {
@@ -104,13 +113,12 @@ extension ContentView {
                     .padding(.vertical, 6)
                     .padding(.horizontal, 10)
                     .background(Color.blue.opacity(0.15))
-                    .foregroundColor(.white)
+                    .foregroundColor(.blue)
                     .cornerRadius(8)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.plain)
                 .opacity(showBranch ? 0 : 1)
                 .disabled(showBranch)
-                .animation(.easeInOut(duration: 0.2), value: showBranch)
             }
         }
     }

@@ -42,6 +42,7 @@ extension ContentView {
                         }
                     }
                 }
+                .scrollIndicators(.never) //fully hide scrollbar on sidebar
             }
             .padding() //padding around VStack
             .frame(width: chatSidebarWidth) //width of vstack

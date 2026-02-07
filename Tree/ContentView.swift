@@ -11,36 +11,14 @@ import AppKit
 //ContentView -> screen component
 //extends View rules, View type provides the entire UI
 struct ContentView: View {
-    //array of fake msgs
-    @State var messages: [String] = [
-        "what is recursion?",
-        "create 10 billion dollar app",
-        "simpler",
-        "scroll",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test"
+    //array of chat messages
+    //isUser: true = right-aligned, no branch button
+    //isUser: false = left-aligned, branchable
+    @State var messages: [ChatMessage] = [
+        ChatMessage(text: "what is recursion?", isUser: true),
+        ChatMessage(text: "Recursion is when a function calls itself.", isUser: false),
+        ChatMessage(text: "simpler", isUser: true),
+        ChatMessage(text: "It's a loop that calls itself instead of repeating.", isUser: false),
     ]
 
     @State var branchMessages: [String] = [
