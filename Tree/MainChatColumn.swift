@@ -15,8 +15,8 @@ extension ContentView {
             mainHeader
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    //loop through each message in the array
-                    ForEach(messages, id: \.text) { message in
+                    //loop through each message in the selected chat
+                    ForEach(chats[selectedChatIndex].messages) { message in
                         messageRow(msg: message)
                     }
                 }
@@ -31,7 +31,7 @@ extension ContentView {
                 onSend: {
                     if !mainMessage.isEmpty {
                         //user message is always isUser: true
-                        messages.append(ChatMessage(text: mainMessage, isUser: true))
+                        chats[selectedChatIndex].messages.append(ChatMessage(text: mainMessage, isUser: true))
                         DispatchQueue.main.async {
                             mainMessage = ""
                         }
@@ -86,7 +86,7 @@ extension ContentView {
                 }
 
                 Text(msg.text)
-                    .padding(12)
+                    .padding(10)
                     .background(msg.isUser ? Color.blue : Color.gray.opacity(0.1))
                     .foregroundColor(.white)
                     .cornerRadius(8)

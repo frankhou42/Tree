@@ -11,66 +11,26 @@ import AppKit
 //ContentView -> screen component
 //extends View rules, View type provides the entire UI
 struct ContentView: View {
-    //array of chat messages
-    //isUser: true = right-aligned, no branch button
-    //isUser: false = left-aligned, branchable
-    @State var messages: [ChatMessage] = [
-        ChatMessage(text: "what is recursion?", isUser: true),
-        ChatMessage(text: "Recursion is when a function calls itself.", isUser: false),
-        ChatMessage(text: "simpler", isUser: true),
-        ChatMessage(text: "It's a loop that calls itself instead of repeating.", isUser: false),
+    //each Chat holds its own messages, so switching chats swaps the message list
+    @State var chats: [Chat] = [
+        Chat(name: "Chat 1", messages: [
+            ChatMessage(text: "what is recursion?", isUser: true),
+            ChatMessage(text: "Recursion is when a function calls itself.", isUser: false),
+            ChatMessage(text: "simpler", isUser: true),
+            ChatMessage(text: "It's a loop that calls itself instead of repeating.", isUser: false),
+        ]),
+        Chat(name: "Chat 2", messages: [
+            ChatMessage(text: "explain closures", isUser: true),
+            ChatMessage(text: "A closure is a function bundled with its environment.", isUser: false),
+        ]),
     ]
 
-    @State var branchMessages: [String] = [
-        "what is recursion?",
-        "create 10 billion dollar app",
-        "simpler",
-        "scroll",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test",
-        "test"
-    ]
+    //index of the chat that is being selected in the sidebar
+    @State var selectedChatIndex: Int = 0
 
-    @State var chats: [String] = [
-        "Chat 1",
-        "Chat 2",
-        "Chat 3",
-        "Chat 1",
-        "Chat 2",
-        "Chat 3",
-        "Chat 1",
-        "Chat 2",
-        "Chat 3",
-        "Chat 1",
-        "Chat 2",
-        "Chat 3",
-        "Chat 1",
-        "Chat 2",
-        "Chat 3",
-        "Chat 1",
-        "Chat 2",
-        "Chat 3"
+    @State var branchMessages: [ChatMessage] = [
+        ChatMessage(text: "what is recursion in more detail?", isUser: true),
+        ChatMessage(text: "Recursion is a technique where a function calls itself to solve smaller subproblems.", isUser: false),
     ]
 
     //whenever @State var's val is changed the UI re-renders automatically

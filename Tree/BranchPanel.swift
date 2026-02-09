@@ -34,10 +34,10 @@ extension ContentView {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                         .padding()
                     } else {
-                        ForEach(branchMessages, id: \.self) { msg in
-                            branchMessageRow(message: msg)
+                        //reuse messageRow from MainChatColumn (no branch button in panel)
+                        ForEach(branchMessages, id: \.text) { msg in
+                            branchMessageRow(msg: msg)
                         }
-                        .foregroundColor(.black)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -54,20 +54,29 @@ extension ContentView {
         .background(Color.white)
     }
 
-    func branchMessageRow(message: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text(message)
+    //reuse same user/AI styling as main chat but without branch button
+    func branchMessageRow(msg: ChatMessage) -> some View {
+        HStack {
+            if msg.isUser {
+                Spacer()
+            }
+
+            Text(msg.text)
                 .padding(12)
-                .background(Color.gray.opacity(0.1))
+                .background(msg.isUser ? Color.blue : Color.gray.opacity(0.1))
+                .foregroundColor(msg.isUser ? .white : .black)
                 .cornerRadius(8)
-                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if !msg.isUser {
+                Spacer()
+            }
         }
     }
 
     var branchHeader: some View {
         VStack(spacing: 12){
             HStack {
-                Text("Side Exploration")
+                Text("Branched Exploration")
                     //sets the color of the component
                     .foregroundColor(.black)
 
@@ -135,9 +144,11 @@ extension ContentView {
         chatInputBar(
             placeholder: "Message", //text that appears when there is no input, branchMessage = ""
             text: $branchMessage,
+            textColor: .black,
             onSend: {
                 if !branchMessage.isEmpty {
-                    branchMessages.append(branchMessage)
+                    //user message in branch
+                    branchMessages.append(ChatMessage(text: branchMessage, isUser: true))
                     DispatchQueue.main.async {
                             branchMessage = ""
                     }

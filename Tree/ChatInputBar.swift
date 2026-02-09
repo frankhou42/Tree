@@ -12,6 +12,7 @@ extension ContentView {
     func chatInputBar(
         placeholder: String,
         text: Binding<String>,
+        textColor: Color = .white, //default white, override per use
         onSend: @escaping() -> Void //The content of chatInputBar runs only when clicked
     ) -> some View {
         HStack {
@@ -20,7 +21,7 @@ extension ContentView {
                 .padding(10)
                 .background(Color.gray.opacity(0.1))
                 .cornerRadius(8)
-                .foregroundColor(.white)
+                .foregroundColor(textColor)
             
             Button(action: onSend) {
                 Image(systemName: "arrow.up.circle.fill")

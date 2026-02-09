@@ -7,8 +7,10 @@
 //  isUser: false = AI response (left-aligned, branchable)
 //
 
+import Foundation
 
-struct ChatMessage {
+struct ChatMessage: Identifiable {
+    let id = UUID()
     let text: String
     let isUser: Bool
 }

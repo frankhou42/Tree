@@ -18,26 +18,38 @@ extension ContentView {
                     VStack(alignment: .leading) {
                         //looping through indices in arr
                         ForEach(chats.indices, id: \.self) { index in
-                            if renameChatIndex == index {
-                                // on commit entails what happens when we click enter
+                            if renameChatIndex == index { 
+                                //rename logic after double tapping renameChatIndex will be set to that index and then we have
+                                //state var to re render the state of text newName when we write so we can see cahnges on screen
+                                //we also have on commit where when we click enter the changes is thus saved
                                 TextField("Chat name", text: $newName, onCommit: {
-                                    //if no new text just revert bnack to original name
-                                    chats[index] = newName.isEmpty ? chats[index] : newName
+                                    chats[index].name = newName.isEmpty ? chats[index].name : newName
                                     renameChatIndex = -1
                                 })
                                 .textFieldStyle(.plain)
                                 .padding(.vertical, 8)
+                                .padding(.horizontal, 6)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .foregroundColor(.white)
                             } else {
-                                Text(chats[index])
-                                    .foregroundColor(.white)
-                                    .padding(.vertical, 8)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .onTapGesture { //when clicked the text we change the renameChatIndex to that index
-                                        renameChatIndex = index
-                                        newName = chats[index] //and we also initialize newName as the current text
-                                    }
+                                //normal logic for sidebar just render all
+                                Button(action: {
+                                    selectedChatIndex = index
+                                }) {
+                                    Text(chats[index].name)
+                                        .foregroundColor(.white)
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 6)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(selectedChatIndex == index ? Color.blue.opacity(0.3) : Color.clear)
+                                        .cornerRadius(6)
+                                }
+                                .contentShape(Rectangle())
+                                .buttonStyle(.plain)
+                                .onTapGesture(count: 2) { //tap twice to rename
+                                    renameChatIndex = index
+                                    newName = chats[index].name
+                                }
                             }
                         }
                     }
@@ -87,7 +99,9 @@ extension ContentView {
             Spacer()
 
             Button(action: {
-                print("New Chat")
+                let newChat = Chat(name: "New Chat", messages: [])
+                chats.append(newChat)
+                selectedChatIndex = chats.count - 1 //length of chat arr - 1
             }){
                 Image(systemName: "plus")
                     .foregroundColor(.white)
