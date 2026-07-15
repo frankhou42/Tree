@@ -35,7 +35,7 @@ extension ContentView {
                         .padding()
                     } else {
                         //reuse messageRow from MainChatColumn (no branch button in panel)
-                        ForEach(branchMessages, id: \.text) { msg in
+                        ForEach(branchMessages) { msg in
                             branchMessageRow(msg: msg)
                         }
                     }
@@ -61,7 +61,7 @@ extension ContentView {
                 Spacer()
             }
 
-            Text(msg.text)
+            Text(msg.text.isEmpty && msg.isStreaming ? "…" : msg.text)
                 .padding(12)
                 .background(msg.isUser ? Color.blue : Color.gray.opacity(0.1))
                 .foregroundColor(msg.isUser ? .white : .black)
@@ -142,19 +142,16 @@ extension ContentView {
 
     var branchInputBar: some View {
         chatInputBar(
-            placeholder: "Message", //text that appears when there is no input, branchMessage = ""
+            placeholder: isResponding ? "Responding…" : "Message",
             text: $branchMessage,
             textColor: .black,
             onSend: {
-                if !branchMessage.isEmpty {
-                    //user message in branch
-                    branchMessages.append(ChatMessage(text: branchMessage, isUser: true))
-                    DispatchQueue.main.async {
-                            branchMessage = ""
-                    }
-                }
+                let text = branchMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty, !isResponding else { return }
+                branchMessage = ""
+                // Stream a real, context-aware reply in the branch.
+                sendBranchMessage(text)
             }
         )
-        
     }
 }

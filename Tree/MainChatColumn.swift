@@ -22,20 +22,18 @@ extension ContentView {
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                //expands to full width of screen and left align 
+                //expands to full width of screen and left align
             }
 
             chatInputBar(
-                placeholder: "Message",
+                placeholder: isResponding ? "Responding…" : "Message",
                 text: $mainMessage,
                 onSend: {
-                    if !mainMessage.isEmpty {
-                        //user message is always isUser: true
-                        chats[selectedChatIndex].messages.append(ChatMessage(text: mainMessage, isUser: true))
-                        DispatchQueue.main.async {
-                            mainMessage = ""
-                        }
-                    }
+                    let text = mainMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !text.isEmpty, !isResponding else { return }
+                    mainMessage = ""
+                    // Stream a real reply from the local model.
+                    sendMainMessage(text)
                 }
             )
         }
@@ -85,10 +83,13 @@ extension ContentView {
                     Spacer()
                 }
 
-                Text(msg.text)
+                // Empty streaming placeholder shows a typing indicator instead
+                // of an empty bubble until the first token arrives.
+                Text(msg.text.isEmpty && msg.isStreaming ? "…" : msg.text)
                     .padding(10)
                     .background(msg.isUser ? Color.blue : Color.gray.opacity(0.1))
-                    .foregroundColor(.white)
+                    //AI text must be dark on the light-gray bubble to stay readable
+                    .foregroundColor(msg.isUser ? .white : .black)
                     .cornerRadius(8)
                     //these are called view modifiers
 
@@ -98,9 +99,13 @@ extension ContentView {
                 }
             }
 
-            //branch button underneath AI messages only
-            if !msg.isUser {
+            //branch button underneath AI messages only (hidden while streaming)
+            if !msg.isUser && !msg.isStreaming {
                 Button {
+                    // Open a branch rooted at THIS AI message so the branch
+                    // carries its context into the local model.
+                    branchParentMessageID = msg.id
+                    branchMessages = []
                     withAnimation {
                         showBranch = true
                     }
