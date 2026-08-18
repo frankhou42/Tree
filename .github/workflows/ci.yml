@@ -1,0 +1,17 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  core-tests:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build conversation graph checks
+        run: swiftc Tree/ChatMessage.swift Tree/Chat.swift Scripts/TreeModelChecks.swift -o /tmp/tree-model-checks
+      - name: Verify context and persistence invariants
+        run: /tmp/tree-model-checks
+      - name: Parse all application sources
+        run: swiftc -parse Tree/*.swift

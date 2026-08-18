@@ -16,24 +16,67 @@ extension ContentView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     //loop through each message in the selected chat
-                    ForEach(chats[selectedChatIndex].messages) { message in
+                    ForEach(getCurrentChat().messages) { message in
                         messageRow(msg: message)
+                    }
+
+                    if isMainThinking {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Thinking…")
+                                .foregroundColor(.gray)
+                                .font(.subheadline)
+                        }
                     }
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                //expands to full width of screen and left align 
+                //expands to full width of screen and left align
             }
 
             chatInputBar(
                 placeholder: "Message",
                 text: $mainMessage,
                 onSend: {
-                    if !mainMessage.isEmpty {
-                        //user message is always isUser: true
-                        chats[selectedChatIndex].messages.append(ChatMessage(text: mainMessage, isUser: true))
-                        DispatchQueue.main.async {
-                            mainMessage = ""
+                    let text = mainMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !text.isEmpty else { return }
+                    guard !isMainThinking else { return }
+
+                    let pathSnapshot = selectedChatPath
+
+                    // 1) append user message
+                    updateChatMessages(path: pathSnapshot, message: ChatMessage(text: text, isUser: true))
+                    mainMessage = ""
+
+                    // 2) call local LLM and append assistant reply
+                    Task {
+                        await MainActor.run { isMainThinking = true }
+                        defer { Task { await MainActor.run { isMainThinking = false } } }
+
+                        let activeChat = getChat(at: pathSnapshot)
+                        let history = activeChat.modelContext
+                        let ollamaMessages: [OllamaClient.Message] =
+                            [OllamaClient.Message(role: .system, content: llmSystemPrompt)] +
+                            history.map { msg in
+                                OllamaClient.Message(
+                                    role: OllamaClient.Role(rawValue: msg.isUser ? "user" : "assistant") ?? .assistant,
+                                    content: msg.text
+                                )
+                            }
+
+                        do {
+                            let reply = try await llm.chat(model: llmModel, messages: ollamaMessages)
+                            await MainActor.run {
+                                updateChatMessages(path: pathSnapshot, message: ChatMessage(text: reply, isUser: false))
+                            }
+                        } catch {
+                            await MainActor.run {
+                                updateChatMessages(
+                                    path: pathSnapshot,
+                                    message: ChatMessage(text: "LLM error: \(error.localizedDescription)", isUser: false)
+                                )
+                            }
                         }
                     }
                 }
@@ -56,6 +99,15 @@ extension ContentView {
                 .font(.headline)
                 .padding(.top, 10)
             Spacer()
+            Label("Local \(llmModel)", systemImage: "lock.shield")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.green.opacity(0.1))
+                .clipShape(Capsule())
+                .padding(.top, 10)
+                .padding(.trailing, 12)
         }
         .padding(.bottom, 8)
     }
@@ -102,6 +154,13 @@ extension ContentView {
             if !msg.isUser {
                 Button {
                     withAnimation {
+                        // Track which message and chat this branch was created from
+                        branchFromMessageId = msg.id
+                        let currentChat = getCurrentChat()
+                        branchFromChatId = currentChat.id
+                        branchContextMessages = currentChat.contextPrefix(through: msg.id)
+                        branchMessages = []
+                        selectedBranchType = "Temporary"
                         showBranch = true
                     }
                 } label : {

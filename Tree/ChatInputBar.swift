@@ -22,7 +22,7 @@ extension ContentView {
                 .background(Color.gray.opacity(0.1))
                 .cornerRadius(8)
                 .foregroundColor(textColor)
-            
+
             Button(action: onSend) {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 24))

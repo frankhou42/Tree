@@ -9,8 +9,14 @@
 
 import Foundation
 
-struct ChatMessage: Identifiable {
-    let id = UUID()
+struct ChatMessage: Identifiable, Codable, Equatable {
+    let id: UUID
     let text: String
     let isUser: Bool
+
+    init(text: String, isUser: Bool) {
+        self.id = UUID()
+        self.text = text
+        self.isUser = isUser
+    }
 }

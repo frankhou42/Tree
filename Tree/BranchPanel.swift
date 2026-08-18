@@ -30,6 +30,13 @@ extension ContentView {
                             Text("Explore tangents without losing your main thread")
                                 .font(.caption)
                                 .foregroundColor(.gray)
+                            if let source = branchContextMessages.last?.text {
+                                Text("Forked from: \(source)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(2)
+                                    .padding(.top, 4)
+                            }
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                         .padding()
@@ -37,6 +44,16 @@ extension ContentView {
                         //reuse messageRow from MainChatColumn (no branch button in panel)
                         ForEach(branchMessages, id: \.text) { msg in
                             branchMessageRow(msg: msg)
+                        }
+                    }
+
+                    if isBranchThinking {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Thinking…")
+                                .foregroundColor(.gray)
+                                .font(.subheadline)
                         }
                     }
                 }
@@ -84,7 +101,7 @@ extension ContentView {
 
                 Button(action: {
                     withAnimation{
-                        showBranch = false
+                        closeBranchPanel()
                     }
                 }) {
                     Image(systemName: "xmark")
@@ -102,7 +119,7 @@ extension ContentView {
                 ) {
                     selectedBranchType = "Temporary"
                 }
-                
+
 
                 branchTypeButton(
                     title: "Permanent",
@@ -117,6 +134,13 @@ extension ContentView {
             Text(selectedBranchType == "Temporary" ? "Deleted when closed" : "Saved and can be reopened")
                 .font(.caption)
                 .foregroundColor(.gray)
+
+            Label(
+                "Fork carries \(branchContextMessages.count) parent messages",
+                systemImage: "point.3.connected.trianglepath.dotted"
+            )
+            .font(.caption2)
+            .foregroundColor(.secondary)
         }
     }
 
@@ -146,15 +170,43 @@ extension ContentView {
             text: $branchMessage,
             textColor: .black,
             onSend: {
-                if !branchMessage.isEmpty {
-                    //user message in branch
-                    branchMessages.append(ChatMessage(text: branchMessage, isUser: true))
-                    DispatchQueue.main.async {
-                            branchMessage = ""
+                let text = branchMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else { return }
+                guard !isBranchThinking else { return }
+
+                //append user message
+                branchMessages.append(ChatMessage(text: text, isUser: true))
+                branchMessage = ""
+
+                // Call the local model without blocking the interface.
+                Task {
+                    await MainActor.run { isBranchThinking = true }
+                    defer { Task { await MainActor.run { isBranchThinking = false } } }
+
+                    // Preserve the parent prefix while keeping new branch turns isolated.
+                    let history = branchContextMessages + branchMessages
+                    let ollamaMessages: [OllamaClient.Message] =
+                        [OllamaClient.Message(role: .system, content: llmSystemPrompt)] +
+                        history.map { msg in
+                            OllamaClient.Message(
+                                role: OllamaClient.Role(rawValue: msg.isUser ? "user" : "assistant") ?? .assistant,
+                                content: msg.text
+                            )
+                        }
+
+                    do {
+                        let reply = try await llm.chat(model: llmModel, messages: ollamaMessages)
+                        await MainActor.run {
+                            branchMessages.append(ChatMessage(text: reply, isUser: false))
+                        }
+                    } catch {
+                        await MainActor.run {
+                            branchMessages.append(ChatMessage(text: "LLM error: \(error.localizedDescription)", isUser: false))
+                        }
                     }
                 }
             }
         )
-        
+
     }
 }
