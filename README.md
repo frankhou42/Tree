@@ -1,54 +1,112 @@
-# Tree 🌳
+# Tree
 
-A native macOS client for **local** large language models. Tree streams responses from
-**Llama 3.2** through [Ollama](https://ollama.com) entirely on-device — no cloud, no API keys — and
-lets you *branch* any reply into a side conversation that carries the original message as context.
+> Think in branches, not chats.
 
-Built in **Swift / SwiftUI**.
+Tree is a native macOS workspace for nonlinear conversations with local AI. A user can fork any
+assistant response, explore a tangent with the exact context that produced it, and either discard
+the exploration or preserve it as a navigable child conversation.
 
-## Why
+The project starts from a simple human and AI interaction belief: people do not think in one long
+transcript. They compare alternatives, follow side questions, revisit assumptions, and return to an
+earlier line of reasoning. AI interfaces should make that structure visible and put the user in
+control of it.
 
-Long chat threads get messy when you want to explore a tangent without derailing the main
-conversation. Tree treats a chat like a tree: branch off any AI message into a focused side thread
-that inherits that message as context, then keep or discard it. Because inference runs locally through
-Ollama, experimentation is free and private.
+## What is implemented
 
-## Features
+- Native SwiftUI interface for macOS with resizable conversation and branch panels
+- Local inference through Ollama, with no cloud API key or remote model dependency
+- Branching from any assistant response with exact parent-prefix context inheritance
+- Temporary branches for disposable exploration and permanent branches for durable knowledge
+- Recursive conversation tree with expandable, renameable, selectable, and deletable nodes
+- Provenance metadata linking every saved branch to its parent chat and source message
+- Atomic local JSON persistence in Application Support
+- Token-streamed model responses that keep the interface responsive
 
-- **On-device inference** — streams tokens from Llama 3.2 via Ollama's `/api/chat`, rendered live.
-- **Context-aware branching** — a branch is seeded with the parent AI message, so the model
-  continues the tangent on-topic.
-- **Persistent branches** — "Permanent" branches are saved to disk (JSON in Application Support) and
-  survive relaunches; "Temporary" branches are discarded on close.
-- **Multi-chat sidebar** — rename, switch, and manage multiple conversations.
+## Why branching changes the interaction
+
+In a linear chat, asking a side question pollutes the context of everything that follows. Starting a
+new chat avoids that pollution but loses the reasoning that made the question meaningful. Tree
+separates those concerns:
+
+| Interaction | Context behavior | User intent |
+| --- | --- | --- |
+| Main thread | Continues the active conversation | Advance the primary line of thought |
+| Temporary branch | Inherits the parent prefix, then disappears on close | Test an idea without clutter |
+| Permanent branch | Inherits the parent prefix and persists as a child node | Keep a useful alternative |
+
+The result is a user-controlled context graph. The model receives only the inherited prefix and the
+messages within the active branch, while the interface preserves where that branch came from.
 
 ## Architecture
 
-| File | Responsibility |
-|------|----------------|
-| `OllamaService.swift` | `actor` streaming client for `localhost:11434/api/chat` (`AsyncThrowingStream`). |
-| `BranchStore.swift` | Codable persistence of chats + saved branches. |
-| `ContentView.swift` | State, streaming drivers, branch save logic. |
-| `MainChatColumn.swift` / `BranchPanel.swift` / `ChatSidebar.swift` | SwiftUI views. |
-| `Chat.swift` / `ChatMessage.swift` | Models (Codable). |
+| Component | Responsibility |
+| --- | --- |
+| `ContentView` | Owns selection, branch lifecycle, recursive graph updates, and persistence triggers |
+| `Chat` | Stores messages, inherited context, child conversations, and branch provenance |
+| `MainChatColumn` | Runs the active conversation and captures the context prefix at a fork point |
+| `BranchPanel` | Isolates temporary or permanent exploration from the main thread |
+| `ChatSidebar` | Renders and edits the recursive conversation hierarchy |
+| `OllamaService` | Streams typed local chat responses through an isolated Swift actor |
+| `ChatStore` | Saves and restores the complete conversation graph as local JSON |
 
-## Running it
+See [the architecture notes](docs/ARCHITECTURE.md) for context isolation invariants and
+[the product vision](docs/VISION.md) for the longer-term interaction model.
 
-**Prerequisites:** macOS 14+, Xcode 16+, and [Ollama](https://ollama.com).
+## Run locally
+
+Requirements:
+
+- macOS 15.5 or newer
+- Xcode 16.4 or newer
+- [Ollama](https://ollama.com/)
+
+Install and start the default model:
 
 ```bash
-# 1. Start Ollama and pull the model
-ollama serve                 # if not already running as a service
 ollama pull llama3.2
-
-# 2. Open and run
-open Tree.xcodeproj          # then press ⌘R in Xcode
+ollama serve
 ```
 
-If the model isn't reachable, Tree shows a banner explaining how to start Ollama — it never crashes.
+Open `Tree.xcodeproj` in Xcode and run the `Tree` scheme. The app connects only to
+`http://localhost:11434` by default.
 
-## Notes
+Run the conversation-graph checks independently of Xcode:
 
-Model and host are configurable in `OllamaService.init` (defaults: `llama3.2`,
-`http://localhost:11434`). The app is sandboxed with the `network.client` entitlement scoped to
-localhost.
+```bash
+swiftc Tree/ChatMessage.swift Tree/Chat.swift Scripts/TreeModelChecks.swift -o /tmp/tree-model-checks
+/tmp/tree-model-checks
+swiftc -parse Tree/*.swift
+```
+
+## Suggested demo
+
+1. Ask the model to propose an architecture for a personal knowledge assistant.
+2. Fork the response and investigate one storage choice as a temporary branch.
+3. Close it and show that the main conversation was not changed.
+4. Fork again, choose Permanent, and keep the alternative.
+5. Expand the saved child in the sidebar, reopen it, and continue with its inherited context.
+6. Relaunch the app to demonstrate local graph persistence.
+
+## Product boundaries
+
+Tree is an early, focused macOS prototype. It does not claim collaborative sync, semantic search,
+multi-model comparison, or production-scale inference. Those boundaries are deliberate so the
+implemented interaction model remains inspectable and credible.
+
+## Roadmap
+
+- Visualize large conversation trees as a zoomable spatial canvas
+- Compare sibling branches and synthesize their conclusions into a parent thread
+- Add semantic search across user-approved branches
+- Export selected subtrees as Markdown knowledge artifacts
+- Evaluate whether branching reduces context contamination and repeated prompting
+
+## Privacy
+
+Conversation history is stored locally in the user's Application Support directory. Model requests
+go to the locally running Ollama service. Tree does not include analytics, an account system, or a
+cloud persistence layer.
+
+## License
+
+MIT

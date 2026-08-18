@@ -16,9 +16,10 @@ extension ContentView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     //loop through each message in the selected chat
-                    ForEach(chats[selectedChatIndex].messages) { message in
+                    ForEach(getCurrentChat().messages) { message in
                         messageRow(msg: message)
                     }
+
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -32,7 +33,6 @@ extension ContentView {
                     let text = mainMessage.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !text.isEmpty, !isResponding else { return }
                     mainMessage = ""
-                    // Stream a real reply from the local model.
                     sendMainMessage(text)
                 }
             )
@@ -54,6 +54,15 @@ extension ContentView {
                 .font(.headline)
                 .padding(.top, 10)
             Spacer()
+            Label("Local \(llmModel)", systemImage: "lock.shield")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.green.opacity(0.1))
+                .clipShape(Capsule())
+                .padding(.top, 10)
+                .padding(.trailing, 12)
         }
         .padding(.bottom, 8)
     }
@@ -104,9 +113,14 @@ extension ContentView {
                 Button {
                     // Open a branch rooted at THIS AI message so the branch
                     // carries its context into the local model.
-                    branchParentMessageID = msg.id
-                    branchMessages = []
                     withAnimation {
+                        // Track which message and chat this branch was created from
+                        branchFromMessageId = msg.id
+                        let currentChat = getCurrentChat()
+                        branchFromChatId = currentChat.id
+                        branchContextMessages = currentChat.contextPrefix(through: msg.id)
+                        branchMessages = []
+                        selectedBranchType = "Temporary"
                         showBranch = true
                     }
                 } label : {

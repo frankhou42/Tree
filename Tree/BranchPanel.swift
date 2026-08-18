@@ -30,6 +30,13 @@ extension ContentView {
                             Text("Explore tangents without losing your main thread")
                                 .font(.caption)
                                 .foregroundColor(.gray)
+                            if let source = branchContextMessages.last?.text {
+                                Text("Forked from: \(source)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(2)
+                                    .padding(.top, 4)
+                            }
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                         .padding()
@@ -39,6 +46,7 @@ extension ContentView {
                             branchMessageRow(msg: msg)
                         }
                     }
+
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
@@ -84,12 +92,13 @@ extension ContentView {
 
                 Button(action: {
                     withAnimation{
-                        showBranch = false
+                        closeBranchPanel()
                     }
                 }) {
                     Image(systemName: "xmark")
                         .foregroundColor(.black)
                 }
+                .disabled(isResponding)
             }
 
             //choosing between temp or independent
@@ -102,7 +111,7 @@ extension ContentView {
                 ) {
                     selectedBranchType = "Temporary"
                 }
-                
+
 
                 branchTypeButton(
                     title: "Permanent",
@@ -117,6 +126,13 @@ extension ContentView {
             Text(selectedBranchType == "Temporary" ? "Deleted when closed" : "Saved and can be reopened")
                 .font(.caption)
                 .foregroundColor(.gray)
+
+            Label(
+                "Fork carries \(branchContextMessages.count) parent messages",
+                systemImage: "point.3.connected.trianglepath.dotted"
+            )
+            .font(.caption2)
+            .foregroundColor(.secondary)
         }
     }
 
@@ -149,7 +165,6 @@ extension ContentView {
                 let text = branchMessage.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !text.isEmpty, !isResponding else { return }
                 branchMessage = ""
-                // Stream a real, context-aware reply in the branch.
                 sendBranchMessage(text)
             }
         )

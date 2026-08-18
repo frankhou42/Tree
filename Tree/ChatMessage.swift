@@ -13,13 +13,27 @@
 import Foundation
 
 struct ChatMessage: Identifiable, Codable, Equatable {
-    var id = UUID()
+    let id: UUID
     var text: String
     let isUser: Bool
-    var isStreaming: Bool = false
+    var isStreaming: Bool
 
-    /// Convert to the wire format the local Ollama model expects.
-    var ollamaMessage: OllamaMessage {
-        OllamaMessage(role: isUser ? "user" : "assistant", content: text)
+    init(id: UUID = UUID(), text: String, isUser: Bool, isStreaming: Bool = false) {
+        self.id = id
+        self.text = text
+        self.isUser = isUser
+        self.isStreaming = isStreaming
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, text, isUser, isStreaming
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        text = try values.decode(String.self, forKey: .text)
+        isUser = try values.decode(Bool.self, forKey: .isUser)
+        isStreaming = try values.decodeIfPresent(Bool.self, forKey: .isStreaming) ?? false
     }
 }

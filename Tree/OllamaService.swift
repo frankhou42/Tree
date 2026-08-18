@@ -15,6 +15,12 @@ struct OllamaMessage: Codable {
     let content: String
 }
 
+extension ChatMessage {
+    var ollamaMessage: OllamaMessage {
+        OllamaMessage(role: isUser ? "user" : "assistant", content: text)
+    }
+}
+
 /// Errors surfaced to the UI when the local model is unreachable or misbehaves.
 enum OllamaError: LocalizedError {
     case serverUnreachable
