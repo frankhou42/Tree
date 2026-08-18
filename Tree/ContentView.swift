@@ -11,13 +11,6 @@ import AppKit
 //ContentView -> screen component
 //extends View rules, View type provides the entire UI
 struct ContentView: View {
-    // Local open-source LLM (Ollama)
-    let llm = OllamaClient()
-    @State var llmModel: String = "qwen3:0.6b"
-    @State var llmSystemPrompt: String = "You are a helpful assistant to help student to study, explain everything simply and intuitively"
-    @State var isMainThinking: Bool = false
-    @State var isBranchThinking: Bool = false
-
     //each Chat holds its own messages, so switching chats swaps the message list
     //loads saved chats from disk, or starts with one empty chat on first launch
     @State var chats: [Chat] = ChatStore.load() ?? [
@@ -34,7 +27,6 @@ struct ContentView: View {
     @State var branchContextMessages: [ChatMessage] = []
 
     //whenever @State var's val is changed the UI re-renders automatically
-    //private -> only accessible in content view struct
     @State var showBranch = false
 
     //Tracks which message the branch was created from
@@ -45,8 +37,7 @@ struct ContentView: View {
     //Tracks the type of branch the user chooses, determine UI behavior
     @State var selectedBranchType: String = "Temporary"
 
-    //user input in branch panel, each time user types the state re-renders to show
-    //every single chracter user inputed
+    //user input in branch panel, each time user types the state re-renders
     @State var branchMessage: String = ""
 
     //show the chats log
@@ -67,18 +58,33 @@ struct ContentView: View {
     //main messsage input bar
     @State var mainMessage: String = ""
 
+    //set when the local model can't be reached, surfaced as a banner
+    @State var errorText: String? = nil
+
+    //true while a response is streaming, disables send to avoid overlap
+    @State var isResponding = false
+
+    // System prompt prepended to every request so the local model behaves
+    // like a concise assistant. Kept in one place for reuse across branches.
+    let systemPrompt = "You are Tree, a concise, helpful assistant running locally."
+    let llmModel = "llama3.2"
 
     //specific view type provide only a type of view
     var body: some View {
-        HStack {
-            if showChats {
-                chatSidebar
-                .transition(.move(edge: .leading)) //View property
+        VStack(spacing: 0) {
+            if let errorText {
+                errorBanner(errorText)
             }
-            mainChatColumn
-            if showBranch {
-                branchPanel
-                .transition(.move(edge: .trailing))
+            HStack {
+                if showChats {
+                    chatSidebar
+                    .transition(.move(edge: .leading)) //View property
+                }
+                mainChatColumn
+                if showBranch {
+                    branchPanel
+                    .transition(.move(edge: .trailing))
+                }
             }
         }
         //auto-save to disk whenever chats change (messages, renames, deletes, etc.)
@@ -174,6 +180,7 @@ struct ContentView: View {
 
     // Handle closing branch panel
     func closeBranchPanel() {
+        guard !isResponding else { return }
         if selectedBranchType == "Permanent" && !branchMessages.isEmpty {
             saveBranchAsPermanent()
         }
@@ -208,6 +215,50 @@ struct ContentView: View {
             updateChatMessagesRecursive(path: Array(path[1...]), message: message, in: &updatedBranched)
             chats[path[0]].branchedChats = updatedBranched
         }
+    }
+
+    // Update a streamed assistant message inside any nested conversation.
+    func updateMessage(
+        at path: [Int],
+        id: UUID,
+        appending delta: String? = nil,
+        isStreaming: Bool? = nil
+    ) {
+        updateMessageRecursive(
+            path: path[...],
+            id: id,
+            appending: delta,
+            isStreaming: isStreaming,
+            in: &chats
+        )
+    }
+
+    private func updateMessageRecursive(
+        path: ArraySlice<Int>,
+        id: UUID,
+        appending delta: String?,
+        isStreaming: Bool?,
+        in chats: inout [Chat]
+    ) {
+        guard let index = path.first, chats.indices.contains(index) else { return }
+        if path.count == 1 {
+            guard let messageIndex = chats[index].messages.firstIndex(where: { $0.id == id })
+            else { return }
+            if let delta {
+                chats[index].messages[messageIndex].text += delta
+            }
+            if let isStreaming {
+                chats[index].messages[messageIndex].isStreaming = isStreaming
+            }
+            return
+        }
+        updateMessageRecursive(
+            path: path.dropFirst(),
+            id: id,
+            appending: delta,
+            isStreaming: isStreaming,
+            in: &chats[index].branchedChats
+        )
     }
 
     // MARK: - Delete chats (top-level + branched)
@@ -300,11 +351,122 @@ struct ContentView: View {
         deleteNestedChat(path: Array(path.dropFirst()), in: &updatedChildren)
         chats[first].branchedChats = updatedChildren
     }
+
+    func errorBanner(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.orange)
+            Text(text)
+                .font(.caption)
+                .foregroundColor(.black)
+            Spacer()
+            Button("Dismiss") { errorText = nil }
+                .buttonStyle(.plain)
+                .font(.caption)
+                .foregroundColor(.blue)
+        }
+        .padding(8)
+        .background(Color.orange.opacity(0.12))
+    }
+
+    // MARK: - Streaming
+
+    /// Build the ordered context for a request: system prompt + prior turns.
+    private func context(from messages: [ChatMessage]) -> [OllamaMessage] {
+        var ctx = [OllamaMessage(role: "system", content: systemPrompt)]
+        ctx.append(contentsOf: messages.map(\.ollamaMessage))
+        return ctx
+    }
+
+    /// Send `text` in the MAIN chat: append the user turn, then stream the
+    /// assistant reply token-by-token into a placeholder message.
+    func sendMainMessage(_ text: String) {
+        guard !isResponding else { return }
+        let pathSnapshot = selectedChatPath
+        updateChatMessages(
+            path: pathSnapshot,
+            message: ChatMessage(text: text, isUser: true)
+        )
+        let history = getChat(at: pathSnapshot).modelContext
+        let placeholderID = UUID()
+        updateChatMessages(
+            path: pathSnapshot,
+            message: ChatMessage(
+                id: placeholderID,
+                text: "",
+                isUser: false,
+                isStreaming: true
+            )
+        )
+        persist()
+
+        streamReply(context: context(from: history)) { delta in
+            updateMessage(at: pathSnapshot, id: placeholderID, appending: delta)
+        } onFinish: {
+            updateMessage(at: pathSnapshot, id: placeholderID, isStreaming: false)
+            persist()
+        }
+    }
+
+    /// Send `text` in the BRANCH panel. The branch context includes the parent
+    /// AI message, so the model continues the tangent on-topic.
+    func sendBranchMessage(_ text: String) {
+        guard !isResponding else { return }
+        branchMessages.append(ChatMessage(text: text, isUser: true))
+        let history = branchMessages
+        let placeholderID = UUID()
+        branchMessages.append(
+            ChatMessage(id: placeholderID, text: "", isUser: false, isStreaming: true)
+        )
+
+        let full = branchContextMessages + history
+
+        streamReply(context: context(from: full)) { delta in
+            guard let mIdx = branchMessages.firstIndex(where: { $0.id == placeholderID })
+            else { return }
+            branchMessages[mIdx].text += delta
+        } onFinish: {
+            if let mIdx = branchMessages.firstIndex(where: { $0.id == placeholderID }) {
+                branchMessages[mIdx].isStreaming = false
+            }
+        }
+    }
+
+    /// Shared streaming driver: pulls deltas off the OllamaService stream and
+    /// applies them on the main actor. Surfaces a banner if the model is down.
+    private func streamReply(context: [OllamaMessage],
+                             onDelta: @escaping (String) -> Void,
+                             onFinish: @escaping () -> Void) {
+        isResponding = true
+        errorText = nil
+        Task {
+            do {
+                let stream = await OllamaService.shared.streamChat(context: context)
+                for try await delta in stream {
+                    await MainActor.run { onDelta(delta) }
+                }
+                await MainActor.run {
+                    isResponding = false
+                    onFinish()
+                }
+            } catch {
+                await MainActor.run {
+                    isResponding = false
+                    errorText = (error as? OllamaError)?.errorDescription
+                        ?? error.localizedDescription
+                    onFinish()
+                }
+            }
+        }
+    }
+
+    // MARK: - Persistence
+
+    func persist() { ChatStore.save(chats) }
 }
 
 // tells xcode to show a live demo
 #Preview {
     ContentView()
     .frame(width: 1000, height: 700)
-    .previewLayout(.fixed(width: 1000, height: 700))
 }

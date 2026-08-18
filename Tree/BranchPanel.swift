@@ -42,20 +42,11 @@ extension ContentView {
                         .padding()
                     } else {
                         //reuse messageRow from MainChatColumn (no branch button in panel)
-                        ForEach(branchMessages, id: \.text) { msg in
+                        ForEach(branchMessages) { msg in
                             branchMessageRow(msg: msg)
                         }
                     }
 
-                    if isBranchThinking {
-                        HStack(spacing: 8) {
-                            ProgressView()
-                                .controlSize(.small)
-                            Text("Thinking…")
-                                .foregroundColor(.gray)
-                                .font(.subheadline)
-                        }
-                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
@@ -78,7 +69,7 @@ extension ContentView {
                 Spacer()
             }
 
-            Text(msg.text)
+            Text(msg.text.isEmpty && msg.isStreaming ? "…" : msg.text)
                 .padding(12)
                 .background(msg.isUser ? Color.blue : Color.gray.opacity(0.1))
                 .foregroundColor(msg.isUser ? .white : .black)
@@ -107,6 +98,7 @@ extension ContentView {
                     Image(systemName: "xmark")
                         .foregroundColor(.black)
                 }
+                .disabled(isResponding)
             }
 
             //choosing between temp or independent
@@ -166,47 +158,15 @@ extension ContentView {
 
     var branchInputBar: some View {
         chatInputBar(
-            placeholder: "Message", //text that appears when there is no input, branchMessage = ""
+            placeholder: isResponding ? "Responding…" : "Message",
             text: $branchMessage,
             textColor: .black,
             onSend: {
                 let text = branchMessage.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !text.isEmpty else { return }
-                guard !isBranchThinking else { return }
-
-                //append user message
-                branchMessages.append(ChatMessage(text: text, isUser: true))
+                guard !text.isEmpty, !isResponding else { return }
                 branchMessage = ""
-
-                // Call the local model without blocking the interface.
-                Task {
-                    await MainActor.run { isBranchThinking = true }
-                    defer { Task { await MainActor.run { isBranchThinking = false } } }
-
-                    // Preserve the parent prefix while keeping new branch turns isolated.
-                    let history = branchContextMessages + branchMessages
-                    let ollamaMessages: [OllamaClient.Message] =
-                        [OllamaClient.Message(role: .system, content: llmSystemPrompt)] +
-                        history.map { msg in
-                            OllamaClient.Message(
-                                role: OllamaClient.Role(rawValue: msg.isUser ? "user" : "assistant") ?? .assistant,
-                                content: msg.text
-                            )
-                        }
-
-                    do {
-                        let reply = try await llm.chat(model: llmModel, messages: ollamaMessages)
-                        await MainActor.run {
-                            branchMessages.append(ChatMessage(text: reply, isUser: false))
-                        }
-                    } catch {
-                        await MainActor.run {
-                            branchMessages.append(ChatMessage(text: "LLM error: \(error.localizedDescription)", isUser: false))
-                        }
-                    }
-                }
+                sendBranchMessage(text)
             }
         )
-
     }
 }

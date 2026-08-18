@@ -2,7 +2,8 @@
 //  Chat.swift
 //  Tree
 //
-//  A single conversation. Each chat owns its own message history.
+//  A single conversation. Each chat owns its own message history and any
+//  saved ("Permanent") branches spun off from its AI responses.
 //
 
 import Foundation

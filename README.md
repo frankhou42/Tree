@@ -20,7 +20,7 @@ control of it.
 - Recursive conversation tree with expandable, renameable, selectable, and deletable nodes
 - Provenance metadata linking every saved branch to its parent chat and source message
 - Atomic local JSON persistence in Application Support
-- Asynchronous model calls that keep the interface responsive
+- Token-streamed model responses that keep the interface responsive
 
 ## Why branching changes the interaction
 
@@ -46,7 +46,7 @@ messages within the active branch, while the interface preserves where that bran
 | `MainChatColumn` | Runs the active conversation and captures the context prefix at a fork point |
 | `BranchPanel` | Isolates temporary or permanent exploration from the main thread |
 | `ChatSidebar` | Renders and edits the recursive conversation hierarchy |
-| `OllamaClient` | Encodes local chat requests and decodes model responses asynchronously |
+| `OllamaService` | Streams typed local chat responses through an isolated Swift actor |
 | `ChatStore` | Saves and restores the complete conversation graph as local JSON |
 
 See [the architecture notes](docs/ARCHITECTURE.md) for context isolation invariants and
@@ -63,7 +63,7 @@ Requirements:
 Install and start the default model:
 
 ```bash
-ollama pull qwen3:0.6b
+ollama pull llama3.2
 ollama serve
 ```
 
@@ -90,13 +90,11 @@ swiftc -parse Tree/*.swift
 ## Product boundaries
 
 Tree is an early, focused macOS prototype. It does not claim collaborative sync, semantic search,
-or production-scale inference. Current inference is response-level rather than token streaming.
-Those boundaries are deliberate so the implemented interaction model remains inspectable and
-credible.
+multi-model comparison, or production-scale inference. Those boundaries are deliberate so the
+implemented interaction model remains inspectable and credible.
 
 ## Roadmap
 
-- Stream local model tokens into each active branch
 - Visualize large conversation trees as a zoomable spatial canvas
 - Compare sibling branches and synthesize their conclusions into a parent thread
 - Add semantic search across user-approved branches

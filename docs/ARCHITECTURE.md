@@ -39,13 +39,13 @@ fields, allowing graphs saved by an older version of Tree to keep loading.
 
 ## Local inference
 
-`OllamaClient` sends typed JSON requests to the local Ollama chat endpoint. Main and branch calls run
-in asynchronous tasks, and UI mutations return to the main actor. The macOS app sandbox permits
-outgoing client connections only so it can reach the local model service.
+`OllamaService` is an actor that sends typed JSON requests to the local Ollama chat endpoint and
+exposes response deltas as an `AsyncThrowingStream`. Main and branch calls update placeholder
+messages on the main actor as tokens arrive. The macOS app sandbox permits outgoing client
+connections so it can reach the local model service.
 
 ## Current limitations
 
-- Model responses arrive as a complete response rather than a token stream.
 - JSON persistence is appropriate for a single-user prototype, not collaborative editing.
 - Conversation paths are rendered hierarchically; a spatial graph view is part of the roadmap.
 - The system has not yet been evaluated through a formal user study.

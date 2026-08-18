@@ -20,15 +20,6 @@ extension ContentView {
                         messageRow(msg: message)
                     }
 
-                    if isMainThinking {
-                        HStack(spacing: 8) {
-                            ProgressView()
-                                .controlSize(.small)
-                            Text("Thinking…")
-                                .foregroundColor(.gray)
-                                .font(.subheadline)
-                        }
-                    }
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -36,49 +27,13 @@ extension ContentView {
             }
 
             chatInputBar(
-                placeholder: "Message",
+                placeholder: isResponding ? "Responding…" : "Message",
                 text: $mainMessage,
                 onSend: {
                     let text = mainMessage.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !text.isEmpty else { return }
-                    guard !isMainThinking else { return }
-
-                    let pathSnapshot = selectedChatPath
-
-                    // 1) append user message
-                    updateChatMessages(path: pathSnapshot, message: ChatMessage(text: text, isUser: true))
+                    guard !text.isEmpty, !isResponding else { return }
                     mainMessage = ""
-
-                    // 2) call local LLM and append assistant reply
-                    Task {
-                        await MainActor.run { isMainThinking = true }
-                        defer { Task { await MainActor.run { isMainThinking = false } } }
-
-                        let activeChat = getChat(at: pathSnapshot)
-                        let history = activeChat.modelContext
-                        let ollamaMessages: [OllamaClient.Message] =
-                            [OllamaClient.Message(role: .system, content: llmSystemPrompt)] +
-                            history.map { msg in
-                                OllamaClient.Message(
-                                    role: OllamaClient.Role(rawValue: msg.isUser ? "user" : "assistant") ?? .assistant,
-                                    content: msg.text
-                                )
-                            }
-
-                        do {
-                            let reply = try await llm.chat(model: llmModel, messages: ollamaMessages)
-                            await MainActor.run {
-                                updateChatMessages(path: pathSnapshot, message: ChatMessage(text: reply, isUser: false))
-                            }
-                        } catch {
-                            await MainActor.run {
-                                updateChatMessages(
-                                    path: pathSnapshot,
-                                    message: ChatMessage(text: "LLM error: \(error.localizedDescription)", isUser: false)
-                                )
-                            }
-                        }
-                    }
+                    sendMainMessage(text)
                 }
             )
         }
@@ -137,10 +92,13 @@ extension ContentView {
                     Spacer()
                 }
 
-                Text(msg.text)
+                // Empty streaming placeholder shows a typing indicator instead
+                // of an empty bubble until the first token arrives.
+                Text(msg.text.isEmpty && msg.isStreaming ? "…" : msg.text)
                     .padding(10)
                     .background(msg.isUser ? Color.blue : Color.gray.opacity(0.1))
-                    .foregroundColor(.white)
+                    //AI text must be dark on the light-gray bubble to stay readable
+                    .foregroundColor(msg.isUser ? .white : .black)
                     .cornerRadius(8)
                     //these are called view modifiers
 
@@ -150,9 +108,11 @@ extension ContentView {
                 }
             }
 
-            //branch button underneath AI messages only
-            if !msg.isUser {
+            //branch button underneath AI messages only (hidden while streaming)
+            if !msg.isUser && !msg.isStreaming {
                 Button {
+                    // Open a branch rooted at THIS AI message so the branch
+                    // carries its context into the local model.
                     withAnimation {
                         // Track which message and chat this branch was created from
                         branchFromMessageId = msg.id

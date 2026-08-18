@@ -6,6 +6,7 @@ struct TreeModelChecks {
         try branchContextStopsAtForkPoint()
         try nestedGraphRoundTripsThroughJSON()
         try legacyChatWithoutInheritedContextStillLoads()
+        try legacyMessageWithoutStreamingStateStillLoads()
         print("Tree model checks passed")
     }
 
@@ -67,6 +68,22 @@ struct TreeModelChecks {
         try require(
             restored.inheritedContext.isEmpty,
             "legacy chats must default to an empty inherited context"
+        )
+    }
+
+    private static func legacyMessageWithoutStreamingStateStillLoads() throws {
+        let legacy = """
+        {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "text": "saved before token streaming",
+          "isUser": false
+        }
+        """.data(using: .utf8)!
+
+        let restored = try JSONDecoder().decode(ChatMessage.self, from: legacy)
+        try require(
+            !restored.isStreaming,
+            "legacy messages must default to a completed streaming state"
         )
     }
 
